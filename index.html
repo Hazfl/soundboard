@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>세션 콘솔 · TRPG 사운드보드</title>
+<link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+<!-- ===================== 로비 화면 (룸 만들기 / 참가) ===================== -->
+<div id="lobby" class="lobby">
+  <div class="lobby-card">
+    <div class="lobby-brand">
+      <span class="lobby-mark">◈</span>
+      <h1>세션 콘솔</h1>
+      <p class="lobby-sub">TRPG 세션을 위한 실시간 싱크 사운드보드</p>
+    </div>
+
+    <div class="lobby-tabs">
+      <button class="lobby-tab active" data-tab="join">룸 참가</button>
+      <button class="lobby-tab" data-tab="create">룸 만들기 (마스터)</button>
+    </div>
+
+    <div class="lobby-pane" id="paneJoin">
+      <label class="lobby-label">룸 코드</label>
+      <input type="text" id="joinCode" class="lobby-input code-input" placeholder="예: A3F9K2" maxlength="6" autocomplete="off" />
+      <button id="joinBtn" class="btn-primary btn-block">참가하기</button>
+
+      <details class="host-reclaim">
+        <summary>이미 만든 룸의 호스트로 재접속하기</summary>
+        <label class="lobby-label">호스트 비밀키</label>
+        <input type="text" id="hostSecretInput" class="lobby-input" placeholder="룸 생성 시 받은 비밀키" autocomplete="off" />
+        <button id="reclaimBtn" class="btn-secondary btn-block">호스트로 접속</button>
+      </details>
+    </div>
+
+    <div class="lobby-pane" id="paneCreate" hidden>
+      <p class="lobby-hint">버튼을 누르면 새 룸 코드가 만들어져요. 플레이어들에게는 룸 코드만 공유하면 되고, 호스트 비밀키는 본인만 보관하세요(재접속 시 필요).</p>
+      <button id="createBtn" class="btn-primary btn-block">새 룸 만들기</button>
+    </div>
+
+    <div id="createdResult" class="created-result" hidden>
+      <div class="cr-row">
+        <span class="cr-label">룸 코드 (플레이어에게 공유)</span>
+        <div class="cr-value" id="crCode">------</div>
+      </div>
+      <div class="cr-row">
+        <span class="cr-label">호스트 비밀키 (본인만 보관!)</span>
+        <div class="cr-value cr-secret" id="crSecret">------</div>
+      </div>
+      <button id="enterBoardBtn" class="btn-primary btn-block">세션 콘솔로 이동</button>
+    </div>
+
+    <p id="lobbyError" class="lobby-error" hidden></p>
+    <p class="lobby-firebase-hint" id="firebaseHint" hidden>
+      ⚠️ Firebase 설정이 비어 있어요. <code>firebase-config.js</code> 파일에 본인의 Firebase 프로젝트 설정을 입력해주세요. (README 참고)
+    </p>
+  </div>
+</div>
+
+<!-- ===================== 세션 콘솔 화면 ===================== -->
+<div id="app" class="app" hidden>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">◈</span>
+      <div class="brand-text">
+        <h1>세션 콘솔</h1>
+        <span class="brand-sub" id="roomCodeDisplay">ROOM ------</span>
+      </div>
+    </div>
+
+    <div class="now-playing" id="nowPlaying">
+      <div class="np-label">NOW PLAYING</div>
+      <div class="np-title" id="npTitle">— 무음 —</div>
+      <div class="np-wave" id="npWave" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <div class="np-time" id="npTime">00:00</div>
+    </div>
+
+    <div class="role-badge" id="roleBadge">플레이어</div>
+  </header>
+
+  <div class="layout">
+
+    <main class="board">
+      <nav class="tabs" id="tabs"></nav>
+      <section class="grid" id="grid"></section>
+    </main>
+
+    <aside class="panel">
+
+      <div class="panel-block">
+        <h2>내 귀 볼륨</h2>
+        <p class="hint">전체 분위기는 마스터가 조절하지만, 내 브라우저에서만 크기를 더 조절할 수 있어요.</p>
+        <input type="range" id="myVolume" min="0" max="1.5" step="0.01" value="1" />
+        <div class="row-between"><span>0</span><span id="myVolumeVal">100%</span><span>150%</span></div>
+      </div>
+
+      <div class="panel-block" id="filterBlock">
+        <h2>실시간 필터</h2>
+        <div class="switch-row">
+          <span>벽 너머 소리 (Low-pass)</span>
+          <button class="switch" id="btnLowpass" role="switch" aria-checked="false"><span class="switch-knob"></span></button>
+        </div>
+        <div class="switch-row">
+          <span>동굴 / 환각 (Reverb)</span>
+          <button class="switch" id="btnReverb" role="switch" aria-checked="false"><span class="switch-knob"></span></button>
+        </div>
+      </div>
+
+      <div class="panel-block" id="hostOnlyBlock" hidden>
+        <h2>마스터 등록</h2>
+        <p class="hint">MP3 직링크 또는 유튜브 링크로 등록합니다. (유튜브는 재생·탐색만 동기화되고 필터·크로스페이드는 적용되지 않아요.)</p>
+
+        <form id="addForm" class="add-form">
+          <div class="add-form-row">
+            <select id="addKind">
+              <option value="bgm">BGM</option>
+              <option value="sfx">SFX</option>
+            </select>
+            <input type="text" id="addTitle" placeholder="이름 (예: 검격 소리)" required />
+          </div>
+          <div class="add-form-row">
+            <select id="addCategory">
+              <option value="combat">전투</option>
+              <option value="daily">일상</option>
+              <option value="horror">공포</option>
+              <option value="custom">기타</option>
+            </select>
+            <input type="text" id="addHotkey" maxlength="6" placeholder="단축키 (예: 1, Shift+1)" />
+          </div>
+          <div class="add-form-row">
+            <input type="text" id="addUrl" placeholder="https://.../music.mp3 또는 유튜브 링크" required />
+          </div>
+          <div class="add-form-row vol-row">
+            <label for="addVolume" class="vol-label">재생 음량</label>
+            <input type="range" id="addVolume" min="0" max="1.5" step="0.01" value="1" />
+            <span id="addVolumeVal" class="vol-val">100%</span>
+          </div>
+          <button type="submit" class="btn-primary btn-block">사운드보드에 추가</button>
+        </form>
+      </div>
+
+    </aside>
+  </div>
+</div>
+
+<div id="soundUnlock" class="sound-unlock" hidden>
+  <span>🔈 이 브라우저에서 소리를 재생하려면 한 번 클릭하세요</span>
+</div>
+<div id="toast" class="toast" hidden></div>
+
+<!-- Firebase (compat SDK: 모듈 번들러 없이 스크립트 태그만으로 사용) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script src="./firebase-config.js"></script>
+<script src="./client.js"></script>
+</body>
+</html>
