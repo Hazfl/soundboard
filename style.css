@@ -93,6 +93,8 @@ button{ font-family:inherit; }
 .host-reclaim[open] summary{ margin-bottom:12px; }
 
 .created-result{ margin-top:20px; }
+.cr-title{ text-align:center; font-family:var(--font-display); font-size:19px; font-weight:700; margin-bottom:20px; color:var(--ink); }
+.created-result .btn-secondary{ margin-top:10px; }
 .cr-row{ margin-bottom:14px; }
 .cr-label{ display:block; font-size:12px; color:var(--ink-dim); font-weight:600; margin-bottom:6px; }
 .cr-value{

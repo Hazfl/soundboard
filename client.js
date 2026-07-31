@@ -92,6 +92,11 @@ el('createBtn').addEventListener('click', async () => {
     roomCode = code; hostSecret = secret; isHost = true;
     el('crCode').textContent = code;
     el('crSecret').textContent = secret;
+
+    // 폼/탭은 완전히 숨기고 결과 화면만 새로 띄운다 (아래에 덧붙는 느낌 방지)
+    el('lobbyTabs').hidden = true;
+    el('paneJoin').hidden = true;
+    el('paneCreate').hidden = true;
     el('createdResult').hidden = false;
   } catch (e) {
     console.error(e);
@@ -100,6 +105,13 @@ el('createBtn').addEventListener('click', async () => {
     el('createBtn').disabled = false;
     el('createBtn').textContent = '새 룸 만들기';
   }
+});
+
+el('backToLobbyBtn').addEventListener('click', () => {
+  el('createdResult').hidden = true;
+  el('lobbyTabs').hidden = false;
+  el('paneCreate').hidden = false;
+  roomCode = null; isHost = false; hostSecret = null;
 });
 
 el('enterBoardBtn').addEventListener('click', () => {
