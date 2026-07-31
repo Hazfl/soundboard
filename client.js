@@ -1,7 +1,8 @@
 // ===================== 세션 콘솔 클라이언트 (Firebase 버전) =====================
-// 서버 프로그램이 따로 없습니다. Firebase Realtime Database가 "지금 몇 번 곡, 언제(서버시각) 시작"
-// 같은 짧은 신호를 룸 코드 단위로 저장/방송해주고, 실제 오디오 로딩/재생/믹싱은 각자의 브라우저가 담당합니다.
-
+// 전체를 try/catch로 감싸서, 어디서든 에러가 나면 화면에 바로 보이게 한다.
+// (콘솔에만 찍히면 사용자가 못 보고 "그냥 안 됨"으로만 남기 때문)
+(function () {
+try {
 const el = (id) => document.getElementById(id);
 // 요소가 없어도(누가 실수로 지워도) 스크립트 전체가 멈추지 않도록 방어하는 헬퍼.
 // 이게 없으면 특정 UI 하나만 지워져도 그 아래 코드(버튼 클릭 등록 등)가 통째로 실행되지 않게 된다.
@@ -750,3 +751,12 @@ document.addEventListener('keydown', (e) => {
   const match = items.find((i) => i.hotkey && normalizeCombo(i.hotkey) === combo);
   if (match) { e.preventDefault(); triggerItem(match); }
 });
+
+} catch (err) {
+  console.error('[세션 콘솔] 치명적 오류:', err);
+  const banner = document.createElement('div');
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#e0574d;color:#fff;padding:14px 18px;font-family:monospace;font-size:13px;white-space:pre-wrap;';
+  banner.textContent = '⚠️ 스크립트 오류가 발생했습니다. 이 문구를 그대로 복사해서 알려주세요:\n' + (err && err.stack ? err.stack : String(err));
+  document.body.prepend(banner);
+}
+})();
