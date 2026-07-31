@@ -250,6 +250,10 @@ input[type=range]{ width:100%; height:22px; accent-color:var(--green); }
 .vol-row input[type=range]{ flex:1; }
 .vol-val{ font-family:var(--font-mono); font-size:12.5px; color:var(--green-dark); width:42px; text-align:right; flex-shrink:0; }
 
+.live-vol-row{ display:flex; align-items:center; gap:10px; margin-top:14px; }
+.live-vol-row input[type=range]{ flex:1; }
+#stopBgmBtn{ color:var(--combat); }
+
 ::-webkit-scrollbar{ width:10px; }
 ::-webkit-scrollbar-thumb{ background:var(--line); border-radius:5px; }
 

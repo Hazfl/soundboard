@@ -117,6 +117,7 @@ el('backToLobbyBtn').addEventListener('click', () => {
 
 el('enterBoardBtn').addEventListener('click', () => {
   subscribeToRoom(roomCode);
+  setupPresence(roomCode);
   enterBoard();
 });
 
@@ -138,6 +139,7 @@ el('joinBtn').addEventListener('click', async () => {
     else { isHost = false; }
 
     subscribeToRoom(code);
+    setupPresence(code);
     enterBoard();
   } catch (e) {
     console.error(e);
@@ -159,6 +161,7 @@ function enterBoard() {
     document.getElementById('roleBadge').textContent = '마스터';
     document.getElementById('roleBadge').classList.add('host');
     el('hostOnlyBlock').hidden = false;
+    el('hostPlaybackBlock').hidden = false;
   } else {
     document.body.classList.add('player-mode');
   }
@@ -198,6 +201,8 @@ function subscribeToRoom(code) {
     if (v == null) return;
     bgmSlots.forEach((slot) => { if (slot) slot.gain.gain.setTargetAtTime(v, ctx.currentTime, 0.05); });
     if (ytPlayer && ytReady) ytPlayer.setVolume(Math.round(v * 100));
+    el('liveBgmVolume').value = v;
+    el('liveBgmVolumeVal').textContent = Math.round(v * 100) + '%';
   });
 
   // SFX: 처음 붙을 때 있던 과거 이벤트는 재생하지 않고, 이후 새로 추가되는 것만 재생
@@ -209,8 +214,50 @@ function subscribeToRoom(code) {
 }
 
 // =====================================================================
+// 3b. 접속 인원 추적 + 아무도 없으면 방 자동 삭제
+//     (별도 서버 없이, Firebase의 onDisconnect를 이용한 순수 클라이언트 방식)
+//     동작 원리: 방에 남은 사람이 나 혼자면, "내가 나가는 순간 방 전체를 삭제"하도록
+//     예약해둔다. 누가 더 들어오면 그 예약을 취소한다. 그래서 마지막 한 명이
+//     나가는 순간(브라우저를 닫거나 인터넷이 끊기는 순간) 방이 사라진다.
+// =====================================================================
+const myClientId = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()));
+
+function setupPresence(code) {
+  const presenceRef = dbRoot.ref('rooms/' + code + '/presence');
+  const myPresenceRef = presenceRef.child(myClientId);
+  const roomRootRef = dbRoot.ref('rooms/' + code);
+
+  dbRoot.ref('.info/connected').on('value', (snap) => {
+    if (snap.val() !== true) return;
+    myPresenceRef.onDisconnect().remove();
+    myPresenceRef.set(true);
+  });
+
+  presenceRef.on('value', (snap) => {
+    const val = snap.val() || {};
+    const keys = Object.keys(val);
+    if (keys.length <= 1) {
+      // 방에 나 혼자(또는 아무도 없음) -> 내가 나가면 방 전체 삭제 예약
+      roomRootRef.onDisconnect().remove();
+    } else {
+      // 다른 사람이 있으면 방 삭제 예약 취소 (내 presence 제거만 유지)
+      roomRootRef.onDisconnect().cancel();
+      myPresenceRef.onDisconnect().remove();
+    }
+  });
+}
+
+// =====================================================================
 // 4. 호스트 명령 전송 (WebSocket send를 대체)
 // =====================================================================
+function cmdStopBgm() {
+  if (!isHost) return;
+  roomRef.child('bgm').set(null);
+}
+function cmdSetBgmVolume(v) {
+  if (!isHost) return;
+  roomRef.child('bgmVolume').set(v);
+}
 function cmdPlayBgm(item) {
   if (!isHost) return;
   roomRef.child('bgm').set({
@@ -577,6 +624,13 @@ setInterval(() => {
 // =====================================================================
 // 12. 내 귀 볼륨
 // =====================================================================
+el('stopBgmBtn').addEventListener('click', cmdStopBgm);
+el('liveBgmVolume').addEventListener('input', (e) => {
+  const v = parseFloat(e.target.value);
+  el('liveBgmVolumeVal').textContent = Math.round(v * 100) + '%';
+  cmdSetBgmVolume(v);
+});
+
 el('myVolume').addEventListener('input', (e) => {
   const v = parseFloat(e.target.value);
   localVolume.gain.setTargetAtTime(v, ctx.currentTime, 0.03);
