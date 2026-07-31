@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>세션 콘솔 · TRPG 사운드보드</title>
-<link rel="stylesheet" href="./style.css?v=3" />
+<link rel="stylesheet" href="./style.css?v=4" />
 </head>
 <body>
 
@@ -37,11 +37,16 @@
 
     <div class="lobby-pane" id="paneCreate" hidden>
       <p class="lobby-hint">버튼을 누르면 새 룸 코드가 만들어져요. 플레이어들에게는 룸 코드만 공유하면 되고, 호스트 비밀키는 본인만 보관하세요(재접속 시 필요).</p>
+      <label class="lobby-label">룸 테마 색상</label>
+      <div class="color-row">
+        <input type="color" id="createColor" value="#3fae71" class="color-input" />
+        <span class="color-row-hint">사운드보드 전체 포인트 컬러로 쓰여요. 나중에 호스트 패널에서 바꿀 수 있어요.</span>
+      </div>
       <button id="createBtn" class="btn-primary btn-block">새 룸 만들기</button>
     </div>
 
     <div id="createdResult" class="created-result" hidden>
-      <div class="cr-title">룸이 생성됐어요</div>
+      <div class="cr-title">🎉 룸이 생성됐어요</div>
       <div class="cr-row">
         <span class="cr-label">룸 코드 (플레이어에게 공유)</span>
         <div class="cr-value" id="crCode">------</div>
@@ -104,6 +109,14 @@
         </div>
       </div>
 
+      <div class="panel-block" id="hostThemeBlock" hidden>
+        <h2>룸 테마 색상</h2>
+        <div class="color-row">
+          <input type="color" id="themeColorInput" class="color-input" />
+          <span class="color-row-hint">이 방에 접속한 모두에게 동일하게 적용돼요.</span>
+        </div>
+      </div>
+
       <div class="panel-block" id="filterBlock">
         <h2>실시간 필터</h2>
         <div class="switch-row">
@@ -161,7 +174,7 @@
 <!-- Firebase (compat SDK: 모듈 번들러 없이 스크립트 태그만으로 사용) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
-<script src="./firebase-config.js?v=3"></script>
-<script src="./client.js?v=3"></script>
+<script src="./firebase-config.js?v=4"></script>
+<script src="./client.js?v=4"></script>
 </body>
 </html>

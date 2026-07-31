@@ -3,6 +3,13 @@
 // 같은 짧은 신호를 룸 코드 단위로 저장/방송해주고, 실제 오디오 로딩/재생/믹싱은 각자의 브라우저가 담당합니다.
 
 const el = (id) => document.getElementById(id);
+// 요소가 없어도(누가 실수로 지워도) 스크립트 전체가 멈추지 않도록 방어하는 헬퍼.
+// 이게 없으면 특정 UI 하나만 지워져도 그 아래 코드(버튼 클릭 등록 등)가 통째로 실행되지 않게 된다.
+function on(id, evt, handler) {
+  const node = el(id);
+  if (!node) { console.warn('[세션 콘솔] 요소를 찾을 수 없어 이벤트를 건너뜁니다:', id); return; }
+  node.addEventListener(evt, handler);
+}
 el('app').style.display = 'none'; // 로비가 뜬 상태로 시작 (캐싱된 CSS와 무관하게 확실히 숨김)
 
 // =====================================================================
@@ -47,6 +54,34 @@ function makeRoomCode() {
 }
 
 // =====================================================================
+// 1b. 룸 테마 색상 (방마다 다른 포인트 컬러)
+// =====================================================================
+function hexToRgb(hex) {
+  hex = (hex || '#3fae71').replace('#', '');
+  if (hex.length === 3) hex = hex.split('').map((c) => c + c).join('');
+  const num = parseInt(hex, 16);
+  return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+}
+function rgbToHex(r, g, b) {
+  return '#' + [r, g, b].map((x) => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, '0')).join('');
+}
+function mixHex(hex, targetHex, amount) {
+  const a = hexToRgb(hex), b = hexToRgb(targetHex);
+  return rgbToHex(a.r + (b.r - a.r) * amount, a.g + (b.g - a.g) * amount, a.b + (b.b - a.b) * amount);
+}
+function applyThemeColor(hex) {
+  if (!hex) return;
+  const root = document.documentElement.style;
+  root.setProperty('--green', hex);
+  root.setProperty('--green-dark', mixHex(hex, '#000000', 0.24));
+  root.setProperty('--green-soft', mixHex(hex, '#ffffff', 0.84));
+}
+function cmdSetThemeColor(hex) {
+  if (!isHost || !roomRef) return;
+  roomRef.child('themeColor').set(hex);
+}
+
+// =====================================================================
 // 2. 로비 UI
 // =====================================================================
 document.querySelectorAll('.lobby-tab').forEach((tab) => {
@@ -67,7 +102,7 @@ function showLobbyError(msg) {
 }
 function hideLobbyError() { el('lobbyError').hidden = true; }
 
-el('createBtn').addEventListener('click', async () => {
+on('createBtn', 'click', async () => {
   if (!dbRoot) { showLobbyError('Firebase 설정이 필요합니다.'); return; }
   hideLobbyError();
   el('createBtn').disabled = true;
@@ -81,9 +116,11 @@ el('createBtn').addEventListener('click', async () => {
       if (!snap.exists()) break;
     }
     const secret = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random())).slice(0, 12);
+    const themeColor = (el('createColor') && el('createColor').value) || '#3fae71';
     await dbRoot.ref('rooms/' + code).set({
       createdAt: firebase.database.ServerValue.TIMESTAMP,
       hostSecret: secret,
+      themeColor,
       filters: { lowpass: false, reverb: false },
       library: { bgm: [], sfx: [] },
       bgm: null,
@@ -108,20 +145,20 @@ el('createBtn').addEventListener('click', async () => {
   }
 });
 
-el('backToLobbyBtn').addEventListener('click', () => {
+on('backToLobbyBtn', 'click', () => {
   el('createdResult').hidden = true;
   el('lobbyTabs').hidden = false;
   el('paneCreate').hidden = false;
   roomCode = null; isHost = false; hostSecret = null;
 });
 
-el('enterBoardBtn').addEventListener('click', () => {
+on('enterBoardBtn', 'click', () => {
   subscribeToRoom(roomCode);
   setupPresence(roomCode);
   enterBoard();
 });
 
-el('joinBtn').addEventListener('click', async () => {
+on('joinBtn', 'click', async () => {
   if (!dbRoot) { showLobbyError('Firebase 설정이 필요합니다.'); return; }
   hideLobbyError();
   const code = el('joinCode').value.trim().toUpperCase();
@@ -147,7 +184,7 @@ el('joinBtn').addEventListener('click', async () => {
   }
 });
 
-el('reclaimBtn').addEventListener('click', () => { el('joinBtn').click(); });
+on('reclaimBtn', 'click', () => { const b = el('joinBtn'); if (b) b.click(); });
 
 function enterBoard() {
   const lobbyEl = el('lobby');
@@ -162,6 +199,7 @@ function enterBoard() {
     document.getElementById('roleBadge').classList.add('host');
     el('hostOnlyBlock').hidden = false;
     el('hostPlaybackBlock').hidden = false;
+    el('hostThemeBlock').hidden = false;
   } else {
     document.body.classList.add('player-mode');
   }
@@ -183,6 +221,14 @@ function subscribeToRoom(code) {
 
   roomRef.child('filters').on('value', (snap) => {
     applyFilters(snap.val() || {});
+  });
+
+  roomRef.child('themeColor').on('value', (snap) => {
+    const hex = snap.val();
+    if (!hex) return;
+    applyThemeColor(hex);
+    const input = el('themeColorInput');
+    if (input) input.value = hex;
   });
 
   roomRef.child('bgm').on('value', (snap) => {
@@ -530,12 +576,12 @@ function setSwitch(id, on) {
 }
 
 let localFilters = { lowpass: false, reverb: false };
-el('btnLowpass').addEventListener('click', () => {
+on('btnLowpass', 'click', () => {
   if (!isHost) return;
   localFilters.lowpass = !localFilters.lowpass;
   cmdSetFilters(localFilters);
 });
-el('btnReverb').addEventListener('click', () => {
+on('btnReverb', 'click', () => {
   if (!isHost) return;
   localFilters.reverb = !localFilters.reverb;
   cmdSetFilters(localFilters);
@@ -622,28 +668,29 @@ setInterval(() => {
 }, 500);
 
 // =====================================================================
-// 12. 내 귀 볼륨
+// 12. 재생 제어 / 테마 색상
 // =====================================================================
-el('stopBgmBtn').addEventListener('click', cmdStopBgm);
-el('liveBgmVolume').addEventListener('input', (e) => {
+on('stopBgmBtn', 'click', cmdStopBgm);
+on('liveBgmVolume', 'input', (e) => {
   const v = parseFloat(e.target.value);
-  el('liveBgmVolumeVal').textContent = Math.round(v * 100) + '%';
+  const label = el('liveBgmVolumeVal');
+  if (label) label.textContent = Math.round(v * 100) + '%';
   cmdSetBgmVolume(v);
 });
-
-el('myVolume').addEventListener('input', (e) => {
-  const v = parseFloat(e.target.value);
-  localVolume.gain.setTargetAtTime(v, ctx.currentTime, 0.03);
-  el('myVolumeVal').textContent = Math.round(v * 100) + '%';
+on('themeColorInput', 'input', (e) => {
+  applyThemeColor(e.target.value);
+  cmdSetThemeColor(e.target.value);
 });
-el('addVolume').addEventListener('input', (e) => {
-  el('addVolumeVal').textContent = Math.round(parseFloat(e.target.value) * 100) + '%';
+
+on('addVolume', 'input', (e) => {
+  const label = el('addVolumeVal');
+  if (label) label.textContent = Math.round(parseFloat(e.target.value) * 100) + '%';
 });
 
 // =====================================================================
 // 13. 마스터 등록 폼
 // =====================================================================
-el('addForm').addEventListener('submit', (e) => {
+on('addForm', 'submit', (e) => {
   e.preventDefault();
   const kind = el('addKind').value;
   const title = el('addTitle').value.trim();
