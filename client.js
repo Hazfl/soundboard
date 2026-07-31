@@ -3,6 +3,7 @@
 // 같은 짧은 신호를 룸 코드 단위로 저장/방송해주고, 실제 오디오 로딩/재생/믹싱은 각자의 브라우저가 담당합니다.
 
 const el = (id) => document.getElementById(id);
+el('app').style.display = 'none'; // 로비가 뜬 상태로 시작 (캐싱된 CSS와 무관하게 확실히 숨김)
 
 // =====================================================================
 // 0. Firebase 초기화
@@ -147,8 +148,12 @@ el('joinBtn').addEventListener('click', async () => {
 el('reclaimBtn').addEventListener('click', () => { el('joinBtn').click(); });
 
 function enterBoard() {
-  el('lobby').hidden = true;
-  el('app').hidden = false;
+  const lobbyEl = el('lobby');
+  const appEl = el('app');
+  lobbyEl.hidden = true;
+  lobbyEl.style.display = 'none';
+  appEl.hidden = false;
+  appEl.style.display = 'flex';
   el('roomCodeDisplay').textContent = 'ROOM ' + roomCode;
   if (isHost) {
     document.getElementById('roleBadge').textContent = '마스터';
